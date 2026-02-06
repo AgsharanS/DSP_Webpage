@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Semantic Image Compression (Text-Preserving) | Project Showcase</title>
+  <meta name="description" content="OCR-guided semantic image compression using block DCT and vector quantization (LBG). Text regions preserved, background compressed aggressively." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- Top progress bar -->
+  <div id="scrollbar" aria-hidden="true"></div>
+
+  <header class="header">
+    <div class="container header-inner">
+      <a class="brand" href="#top">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>Semantic Compression</span>
+      </a>
+
+      <nav class="nav" aria-label="Primary">
+        <a href="#overview">Overview</a>
+        <a href="#method">Method</a>
+        <a href="#demo">Demo</a>
+        <a href="#results">Results</a>
+        <a href="#limits">Limitations</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="themeBtn" class="btn btn-ghost" type="button" aria-label="Toggle theme">
+          <span class="icon" aria-hidden="true">☾</span>
+        </button>
+        <a class="btn btn-primary" href="#results">View Results</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="reveal">
+          <p class="eyebrow">DSP Project • Text-Preserving Image Compression</p>
+          <h1 class="h1">
+            Compress images without destroying the text.
+          </h1>
+          <p class="lead">
+            This project uses an OCR-derived text mask to protect text blocks during compression,
+            while background regions are compressed aggressively using block DCT + vector quantization (LBG).
+          </p>
+
+          <div class="badges" role="list">
+            <span class="badge" role="listitem">8×8 Block DCT</span>
+            <span class="badge" role="listitem">OCR Mask (Semantic ROI)</span>
+            <span class="badge" role="listitem">VQ (LBG Codebook)</span>
+            <span class="badge" role="listitem">Fix 3: Near-lossless Text</span>
+          </div>
+
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#demo">See Demo</a>
+            <a class="btn btn-ghost" href="#method">How it works</a>
+          </div>
+
+          <p class="fineprint">
+            Goal: keep text readable at similar overall compression targets. Background can tolerate more distortion than text.
+          </p>
+        </div>
+
+        <div class="hero-card reveal">
+          <div class="hero-card-top">
+            <p class="hero-card-title">Quick glance</p>
+            <p class="hero-card-sub">What changes vs normal compression?</p>
+          </div>
+
+          <div class="mini-steps">
+            <div class="mini-step">
+              <div class="mini-icon" aria-hidden="true">①</div>
+              <div>
+                <p class="mini-title">Detect text region</p>
+                <p class="mini-desc">OCR gives approximate text zones (mask).</p>
+              </div>
+            </div>
+
+            <div class="mini-step">
+              <div class="mini-icon" aria-hidden="true">②</div>
+              <div>
+                <p class="mini-title">Block DCT</p>
+                <p class="mini-desc">8×8 blocks transformed to frequency coefficients.</p>
+              </div>
+            </div>
+
+            <div class="mini-step">
+              <div class="mini-icon" aria-hidden="true">③</div>
+              <div>
+                <p class="mini-title">Different treatment</p>
+                <p class="mini-desc">Text: preserved (Fix 3). Background: VQ + LBG.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-card-bottom">
+            <a class="link" href="#results">Jump to metrics →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-bg" aria-hidden="true"></div>
+    </section>
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2 class="h2">Overview</h2>
+          <p class="sub">
+            Most codecs compress everything uniformly. That’s fine for backgrounds, but text breaks first.
+            This project treats text like “high priority” and background like “compressible”.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card reveal">
+            <h3 class="h3">Problem</h3>
+            <p>
+              Text has sharp edges and thin strokes. Uniform compression tends to blur or block these details,
+              making posters and UI screenshots hard to read.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3 class="h3">Idea</h3>
+            <p>
+              Use semantic guidance (text mask) to allocate “quality budget” differently:
+              more preservation for text, heavier compression for background.
+            </p>
+          </div>
+
+          <div class="card reveal">
+            <h3 class="h3">Approach</h3>
+            <p>
+              Split the image into 8×8 blocks, apply DCT, then encode text and background using different rules.
+              Background uses a trained VQ codebook (LBG). Text blocks are kept high fidelity (Fix 3).
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- METHOD -->
+    <section id="method" class="section section-alt">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2 class="h2">Method</h2>
+          <p class="sub">
+            The pipeline stays DSP-friendly: block transforms + quantization logic. OCR is used only to localize text.
+          </p>
+        </div>
+
+        <div class="timeline">
+          <div class="t-item reveal">
+            <div class="t-dot" aria-hidden="true"></div>
+            <div class="t-body">
+              <h3 class="h3">1) OCR-based text mask</h3>
+              <p>
+                OCR returns text locations (bounding boxes). We convert that to a mask, add small padding,
+                and convert it into an 8×8 block map so decisions align with block processing.
+              </p>
+              <p class="note">
+                Mask quality matters. If OCR misses text (low contrast / stylized fonts), the system can’t protect it.
+              </p>
+            </div>
+          </div>
+
+          <div class="t-item reveal">
+            <div class="t-dot" aria-hidden="true"></div>
+            <div class="t-body">
+              <h3 class="h3">2) Block DCT representation</h3>
+              <p>
+                Each 8×8 block is transformed using DCT to get frequency coefficients. Low frequencies tend to store the “bulk”
+                of smooth content. Edges and fine details need higher-frequency content.
+              </p>
+            </div>
+          </div>
+
+          <div class="t-item reveal">
+            <div class="t-dot" aria-hidden="true"></div>
+            <div class="t-body">
+              <h3 class="h3">3) Background compression using VQ (LBG)</h3>
+              <p>
+                Background blocks use a compact feature vector (first few DCT coefficients) and are quantized using
+                vector quantization. The codebook is trained using the LBG algorithm.
+              </p>
+            </div>
+          </div>
+
+          <div class="t-item reveal">
+            <div class="t-dot" aria-hidden="true"></div>
+            <div class="t-body">
+              <h3 class="h3">4) Text preservation (Fix 3)</h3>
+              <p>
+                Text blocks store the full DCT coefficients (high fidelity). This avoids “template blocking”
+                from VQ and keeps characters readable.
+              </p>
+              <p class="note">
+                Trade-off: if the mask becomes too large, the compressed size increases because many blocks are treated as text.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="figure-card reveal">
+          <div class="figure-card-head">
+            <h3 class="h3">Pipeline diagram</h3>
+            <p class="sub">
+              Replace this placeholder with your final pipeline figure (edited to say OCR, and Fix 3 split).
+            </p>
+          </div>
+          <div class="img-frame">
+            <img src="assets/pipeline.png" alt="Pipeline diagram of the proposed semantic compression system">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DEMO -->
+    <section id="demo" class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2 class="h2">Demo</h2>
+          <p class="sub">
+            Drag the slider to compare reconstruction. This example uses the dataset image named <code>image</code>.
+          </p>
+        </div>
+
+        <div class="demo-grid">
+          <!-- Before/after slider -->
+          <div class="card reveal">
+            <h3 class="h3">Uniform VQ vs Semantic (Fix 3)</h3>
+            <p class="small">
+              Uniform VQ heavily compresses all blocks. Semantic preserves text blocks and compresses background.
+            </p>
+
+            <div class="compare" data-compare>
+              <img class="compare-base" src="assets/image_uniform.png" alt="Uniform VQ reconstructed image">
+              <div class="compare-overlay" data-overlay>
+                <img src="assets/image_semantic.png" alt="Semantic reconstructed image">
+              </div>
+              <input class="compare-range" type="range" min="0" max="100" value="55" aria-label="Comparison slider" data-range>
+              <div class="compare-handle" aria-hidden="true" data-handle></div>
+              <div class="compare-label left">Uniform</div>
+              <div class="compare-label right">Semantic</div>
+            </div>
+
+            <p class="note">
+              If the text mask is accurate, the semantic output keeps text sharp. If the mask misses text, the benefit drops.
+            </p>
+          </div>
+
+          <!-- Mask overlay -->
+          <div class="card reveal">
+            <h3 class="h3">Detected text mask overlay</h3>
+            <p class="small">
+              Red indicates regions treated as “text” (protected). Small false positives can happen on textured backgrounds.
+            </p>
+            <div class="img-frame">
+              <img src="assets/image_mask_overlay.png" alt="OCR mask overlay">
+            </div>
+
+            <details class="details">
+              <summary>Why is the mask not pixel-perfect?</summary>
+              <p>
+                OCR returns bounding boxes and confidence, not perfect stroke segmentation. The mask is expanded slightly
+                so blocks on text edges aren’t mistakenly compressed as background.
+              </p>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="results" class="section section-alt">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2 class="h2">Results</h2>
+          <p class="sub">
+            Metrics from MATLAB evaluation (PSNR and compression ratio). “Text PSNR = 120 dB” is a capped value
+            used to represent near-zero error in the protected text region (Fix 3).
+          </p>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat card reveal">
+            <p class="stat-kicker">Example image (<code>image</code>)</p>
+            <p class="stat-value"><span data-count="26.08">0</span> dB</p>
+            <p class="stat-label">Semantic PSNR</p>
+          </div>
+
+          <div class="stat card reveal">
+            <p class="stat-kicker">Example image (<code>image</code>)</p>
+            <p class="stat-value">CR <span data-count="0.91">0</span></p>
+            <p class="stat-label">Semantic compression ratio</p>
+          </div>
+
+          <div class="stat card reveal">
+            <p class="stat-kicker">No-text stress test</p>
+            <p class="stat-value">~<span data-count="98.73">0</span>×</p>
+            <p class="stat-label">CR when no text detected</p>
+          </div>
+        </div>
+
+        <div class="card reveal">
+          <div class="table-head">
+            <h3 class="h3">Evaluation summary (6 images)</h3>
+            <p class="small">
+              Uniform is an aggressive baseline. JPEG is a conventional reference. Semantic is the proposed method.
+            </p>
+          </div>
+
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>PSNR (Uniform)</th>
+                  <th>CR (Uniform)</th>
+                  <th>PSNR (JPEG)</th>
+                  <th>CR (JPEG)</th>
+                  <th>PSNR (Semantic)</th>
+                  <th>CR (Semantic)</th>
+                  <th>Text PSNR (Semantic)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>11625147</td>
+                  <td>26.33</td><td>122.43</td>
+                  <td>43.65</td><td>11.67</td>
+                  <td>34.70</td><td>1.20</td>
+                  <td>120.00*</td>
+                </tr>
+                <tr>
+                  <td>OUGNJ10</td>
+                  <td>22.76</td><td>122.31</td>
+                  <td>40.27</td><td>9.67</td>
+                  <td>23.37</td><td>12.56</td>
+                  <td>120.00*</td>
+                </tr>
+                <tr>
+                  <td>Test Image Poster</td>
+                  <td>19.28</td><td>122.31</td>
+                  <td>34.66</td><td>4.22</td>
+                  <td>27.99</td><td>0.69</td>
+                  <td>120.00*</td>
+                </tr>
+                <tr>
+                  <td>backiee-218658-landscape (no text)</td>
+                  <td>25.66</td><td>121.26</td>
+                  <td>45.88</td><td>20.72</td>
+                  <td>25.59</td><td>98.04</td>
+                  <td>—</td>
+                </tr>
+                <tr>
+                  <td>image</td>
+                  <td>19.56</td><td>120.08</td>
+                  <td>39.28</td><td>6.68</td>
+                  <td>26.08</td><td>0.91</td>
+                  <td>120.00*</td>
+                </tr>
+                <tr>
+                  <td>wallpaperflare.com_wallpaper (no text)</td>
+                  <td>28.96</td><td>122.31</td>
+                  <td>47.93</td><td>28.67</td>
+                  <td>28.87</td><td>98.73</td>
+                  <td>—</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p class="small muted">
+            *Text PSNR is capped at 120 dB to avoid “infinite PSNR” when text-region error becomes near zero under Fix 3.
+          </p>
+        </div>
+
+        <div class="figure-card reveal">
+          <div class="figure-card-head">
+            <h3 class="h3">Visual comparison</h3>
+            <p class="sub">Original vs Semantic vs Uniform.</p>
+          </div>
+          <div class="img-frame">
+            <img src="assets/compare_grid.png" alt="Original vs Uniform vs JPEG vs Semantic comparison grid">
+          </div>
+        </div>
+
+        <div class="callout reveal">
+          <h3 class="h3">Key takeaway</h3>
+          <p>
+            Semantic compression doesn’t try to “beat JPEG everywhere”. It demonstrates a controlled trade-off:
+            text gets priority (readability), background absorbs distortion (compression).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIMITATIONS -->
+    <section id="limits" class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2 class="h2">Limitations and future work</h2>
+          <p class="sub">
+            Honest notes. These are not excuses, they’re the engineering reality of a semantic pipeline.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card reveal">
+            <h3 class="h3">Limitations</h3>
+            <ul class="list">
+              <li><strong>Mask dependency:</strong> if OCR misses low-contrast or stylized text, those blocks get compressed as background.</li>
+              <li><strong>Over-detection:</strong> a large mask increases bitrate (many blocks treated as text in Fix 3).</li>
+              <li><strong>Not a universal codec:</strong> designed to demonstrate region-prioritized DSP compression, not replace JPEG/WebP.</li>
+            </ul>
+          </div>
+
+          <div class="card reveal">
+            <h3 class="h3">Future improvements</h3>
+            <ul class="list">
+              <li>Better text localization (CRAFT / EAST) if support packages are available.</li>
+              <li>Entropy coding for indices and text payload to reduce overhead.</li>
+              <li>Adaptive padding and block threshold tuned per image to reduce false positives.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="footer-card reveal">
+          <div>
+            <h3 class="h3">Want the full report?</h3>
+            <p class="sub">Add your PDF link here for submission and sharing.</p>
+          </div>
+          <div class="footer-actions">
+            <a class="btn btn-primary" href="#" title="Replace with your report PDF link">Download Report</a>
+            <a class="btn btn-ghost" href="#" title="Replace with your GitHub repo link">View Code</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p class="small muted">
+          Built for a DSP coursework showcase. Replace links and assets with your final submission materials.
+        </p>
+        <p class="small muted">
+          © <span id="year"></span> • Your Name • Your University
+        </p>
+      </div>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
